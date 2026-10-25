@@ -1,0 +1,24 @@
+# Gradle
+.gradle/
+build/
+
+# Minecraft development
+run/
+bin/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# Logs and crash reports
+*.log
+hs_err_pid*
+
+# Local environment files
+.env
+.env.*
+
+# Nix
+result
+*.nix
