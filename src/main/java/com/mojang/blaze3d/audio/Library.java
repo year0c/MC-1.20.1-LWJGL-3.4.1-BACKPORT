@@ -23,8 +23,6 @@ import org.lwjgl.system.MemoryStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.example.testmod.TListener;
-
 public final class Library {
     private static final Logger LOG = LoggerFactory.getLogger(Library.class);
 
@@ -39,7 +37,7 @@ public final class Library {
     private boolean disconnectQuerySupported;
     private @Nullable String rememberedDefaultDevice;
 
-    private final TListener audioListener = new TListener();
+    private final Listener audioListener = new Listener();
     private ChannelPool staticPool = new LimitedChannelPool(0);
     private ChannelPool streamPool = new LimitedChannelPool(0);
 
@@ -188,7 +186,7 @@ public final class Library {
         disconnectQuerySupported = false;
     }
 
-    public TListener getListener() {
+    public Listener getListener() {
         return audioListener;
     }
 
