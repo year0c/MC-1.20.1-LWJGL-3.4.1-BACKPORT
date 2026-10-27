@@ -4,11 +4,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sound.sampled.AudioFormat;
+
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.openal.AL10;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.example.testmod.AudioDataStream;
+
+import com.example.testmod.TAudioDataStream;
 
 public class Channel {
    private static final Logger LOGGER = LoggerFactory.getLogger(Channel.class);
@@ -18,7 +20,7 @@ public class Channel {
    private final int source;
    private final AtomicBoolean initialized = new AtomicBoolean(true);
    private int streamingBufferSize = 16384;
-   private @Nullable AudioDataStream stream;
+   private @Nullable TAudioDataStream stream;
 
    static @Nullable Channel create() {
       int[] sources = new int[1];
@@ -123,7 +125,7 @@ public class Channel {
       );
    }
 
-   public void attachBufferStream(AudioDataStream audioStream) {
+   public void attachBufferStream(TAudioDataStream audioStream) {
       this.stream = audioStream;
       AudioFormat audioFormat = audioStream.getFormat();
       this.streamingBufferSize = calculateBufferSize(audioFormat, BUFFER_DURATION_SECONDS);
