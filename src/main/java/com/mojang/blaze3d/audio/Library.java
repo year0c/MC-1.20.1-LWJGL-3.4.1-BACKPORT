@@ -25,8 +25,6 @@ import org.slf4j.Logger;
 
 public class Library {
     static final Logger LOGGER = LogUtils.getLogger();
-    private static final int NO_DEVICE = 0;
-    private static final int DEFAULT_CHANNEL_COUNT = 30;
     private static final boolean IS_RUNNING_IN_IDE =
             System.getProperty("idea.launcher.port") != null;
 
