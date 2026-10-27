@@ -10,8 +10,6 @@ import org.lwjgl.openal.EXTLinearDistance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.example.testmod.TAudioDataStream;
-
 public final class Channel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Channel.class);
     private static final int INITIAL_STREAM_BUFFERS = 4;
@@ -20,7 +18,7 @@ public final class Channel {
     private final AtomicBoolean active = new AtomicBoolean(true);
 
     private int chunkBytes = 16_384;
-    private @Nullable TAudioDataStream audioStream;
+    private @Nullable AudioStream audioStream;
 
     private Channel(int sourceId) {
         this.sourceId = sourceId;
@@ -138,7 +136,7 @@ public final class Channel {
         );
     }
 
-    public void attachStream(TAudioDataStream stream) {
+    public void attachStream(AudioStream stream) {
         audioStream = stream;
         chunkBytes = computeChunkSize(stream.getFormat(), 1);
         queueStreamBuffers(INITIAL_STREAM_BUFFERS);

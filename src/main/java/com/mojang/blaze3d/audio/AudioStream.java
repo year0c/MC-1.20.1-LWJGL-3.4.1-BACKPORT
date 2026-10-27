@@ -1,10 +1,10 @@
-package com.example.testmod;
+package com.mojang.blaze3d.audio;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import javax.sound.sampled.AudioFormat;
 
-public interface TAudioDataStream extends AutoCloseable {
+public interface AudioStream extends AutoCloseable {
     AudioFormat getFormat();
 
     ByteBuffer getBuffer(int size) throws IOException;
