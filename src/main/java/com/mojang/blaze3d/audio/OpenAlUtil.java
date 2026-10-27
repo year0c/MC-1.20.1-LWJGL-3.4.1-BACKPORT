@@ -44,20 +44,27 @@ public final class OpenAlUtil {
         int channelCount = audioFormat.getChannels();
         int sampleBits = audioFormat.getSampleSizeInBits();
 
-        if (encoding.equals(Encoding.PCM_SIGNED)
-                || encoding.equals(Encoding.PCM_UNSIGNED)) {
-            if (channelCount == 1 && sampleBits == 8) {
-                return AL10.AL_FORMAT_MONO8;
-            }
-            if (channelCount == 1 && sampleBits == 16) {
-                return AL10.AL_FORMAT_MONO16;
-            }
-            if (channelCount == 2 && sampleBits == 8) {
-                return AL10.AL_FORMAT_STEREO8;
-            }
-            if (channelCount == 2 && sampleBits == 16) {
-                return AL10.AL_FORMAT_STEREO16;
-            }
+        boolean supportedEncoding =
+                (sampleBits == 8 && encoding.equals(Encoding.PCM_UNSIGNED))
+                || (sampleBits == 16 && encoding.equals(Encoding.PCM_SIGNED));
+
+        if (!supportedEncoding) {
+            throw new IllegalArgumentException(
+                    "Unsupported audio format: " + audioFormat
+            );
+        }
+
+        if (channelCount == 1 && sampleBits == 8) {
+            return AL10.AL_FORMAT_MONO8;
+        }
+        if (channelCount == 1 && sampleBits == 16) {
+            return AL10.AL_FORMAT_MONO16;
+        }
+        if (channelCount == 2 && sampleBits == 8) {
+            return AL10.AL_FORMAT_STEREO8;
+        }
+        if (channelCount == 2 && sampleBits == 16) {
+            return AL10.AL_FORMAT_STEREO16;
         }
 
         throw new IllegalArgumentException("Unsupported audio format: " + audioFormat);

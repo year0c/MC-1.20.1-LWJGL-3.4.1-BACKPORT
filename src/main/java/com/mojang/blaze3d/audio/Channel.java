@@ -116,7 +116,7 @@ public final class Channel {
     }
 
     public void disableAttenuation() {
-        AL10.alSourcei(sourceId, AL10.AL_DISTANCE_MODEL, AL10.AL_NONE);
+        AL10.alSourcef(sourceId, AL10.AL_ROLLOFF_FACTOR, 0.0f);
     }
 
     public void useLinearAttenuation(float rolloff) {

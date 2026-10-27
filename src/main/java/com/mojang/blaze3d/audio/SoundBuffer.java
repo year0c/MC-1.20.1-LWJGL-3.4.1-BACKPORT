@@ -82,9 +82,15 @@ public final class SoundBuffer {
     private static int resolveOpenAlFormat(AudioFormat format) {
         int channels = format.getChannels();
         int bitsPerSample = format.getSampleSizeInBits();
+        AudioFormat.Encoding encoding = format.getEncoding();
 
-        if (format.getEncoding() != AudioFormat.Encoding.PCM_SIGNED
-                && format.getEncoding() != AudioFormat.Encoding.PCM_UNSIGNED) {
+        boolean supportedEncoding =
+                (bitsPerSample == 8
+                        && encoding.equals(AudioFormat.Encoding.PCM_UNSIGNED))
+                || (bitsPerSample == 16
+                        && encoding.equals(AudioFormat.Encoding.PCM_SIGNED));
+
+        if (!supportedEncoding) {
             return 0;
         }
 

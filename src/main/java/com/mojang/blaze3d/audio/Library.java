@@ -151,10 +151,7 @@ public final class Library {
     }
 
     public String getCurrentDeviceName() {
-        String name = ALC10.alcGetString(deviceHandle, ALC_ALL_DEVICES_SPECIFIER);
-        if (name == null) {
-            name = ALC10.alcGetString(deviceHandle, ALC_DEFAULT_DEVICE_SPECIFIER);
-        }
+        String name = ALC10.alcGetString(deviceHandle, ALC10.ALC_DEVICE_SPECIFIER);
         return name == null ? "Unknown" : name;
     }
 
