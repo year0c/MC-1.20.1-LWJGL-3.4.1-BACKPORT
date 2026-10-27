@@ -36,7 +36,6 @@ public final class Library {
     private static final int AL_SOURCE_DISTANCE_MODEL = 0x0200;
     private static final int ALC_DEFAULT_ALL_DEVICES_SPECIFIER = 0x1012;
     private static final int ALC_ALL_DEVICES_SPECIFIER = 0x1013;
-    private static final int ALC_DEFAULT_DEVICE_SPECIFIER = 0x1004;
     private static final int ALC_CONNECTED = 0x0313;
 
     private long deviceHandle;
