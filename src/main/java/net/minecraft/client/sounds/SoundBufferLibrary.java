@@ -11,7 +11,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.List;
 import java.util.ArrayList;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.sound.Sound;
 import net.minecraft.util.Identifier;
 import net.minecraft.resource.ResourceFactory;
@@ -67,7 +67,7 @@ public class SoundBufferLibrary {
          } catch (IOException iOException) {
             throw new CompletionException(iOException);
          }
-      }, Util.nonCriticalIoPool()));
+      }, Util.getIoWorkerExecutor()));
    }
 
    public CompletableFuture<AudioStream> getStream(Identifier resourceLocation, boolean bl) {
@@ -78,7 +78,7 @@ public class SoundBufferLibrary {
          } catch (IOException iOException) {
             throw new CompletionException(iOException);
          }
-      }, Util.nonCriticalIoPool());
+      }, Util.getIoWorkerExecutor());
    }
 
    public void clear() {
