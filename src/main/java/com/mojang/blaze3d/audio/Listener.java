@@ -1,49 +1,40 @@
 package com.mojang.blaze3d.audio;
 
+import net.minecraft.util.math.Vec3d;
 import org.lwjgl.openal.AL10;
 
-public final class Listener {
-    private ListenerTransform transform = ListenerTransform.INITIAL;
+import com.example.testmod.TListenerTransform;
 
-    public void setTransform(ListenerTransform next) {
-        this.transform = next;
+public class Listener {
+    private float gain = 1.0F;
+    private TListenerTransform transform = TListenerTransform.INITIAL;
 
-        AL10.alListener3f(
-                AL10.AL_POSITION,
-                next.x(),
-                next.y(),
-                next.z()
-        );
-
-        AL10.alListenerfv(AL10.AL_ORIENTATION, new float[] {
-                next.forwardX(),
-                next.forwardY(),
-                next.forwardZ(),
-                next.upX(),
-                next.upY(),
-                next.upZ()
+    public void setTransform(TListenerTransform listenerTransform) {
+        this.transform = listenerTransform;
+        Vec3d vec3 = listenerTransform.position();
+        Vec3d vec32 = listenerTransform.forward();
+        Vec3d vec33 = listenerTransform.up();
+        AL10.alListener3f(4100, (float) vec3.x, (float) vec3.y, (float) vec3.z);
+        AL10.alListenerfv(4111, new float[]{
+                (float) vec32.x, (float) vec32.y, (float) vec32.z,
+                (float) vec33.x, (float) vec33.y, (float) vec33.z
         });
     }
 
-    public ListenerTransform getTransform() {
-        return transform;
+    public void setGain(float f) {
+        AL10.alListenerf(4106, f);
+        this.gain = f;
     }
 
-    public record ListenerTransform(
-            float x,
-            float y,
-            float z,
-            float forwardX,
-            float forwardY,
-            float forwardZ,
-            float upX,
-            float upY,
-            float upZ
-    ) {
-        public static final ListenerTransform INITIAL = new ListenerTransform(
-                0.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, -1.0f,
-                0.0f, 1.0f, 0.0f
-        );
+    public float getGain() {
+        return this.gain;
     }
-}
+
+    public void reset() {
+        this.setTransform(TListenerTransform.INITIAL);
+    }
+
+    public TListenerTransform getTransform() {
+        return this.transform;
+    }
+}   
