@@ -1,7 +1,6 @@
 package com.mojang.blaze3d.audio;
 
 import java.nio.IntBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -27,150 +26,182 @@ public final class Library {
     private static final Logger LOG = LoggerFactory.getLogger(Library.class);
 
     private static final int NO_DEVICE = 0;
-    private static final int FALLBACK_SOURCE_COUNT = 30;
-    private static final int HRTF_REQUEST = 0x1992;
-    private static final int MIX_RATE = 0x1007;
-    private static final int SOURCE_DISTANCE_MODEL = 0x0200;
+    private static final int DEFAULT_SOURCE_LIMIT = 30;
+    private static final int ALC_FREQUENCY = 0x1007;
+    private static final int ALC_ATTRIBUTES_SIZE = 0x1002;
+    private static final int ALC_ALL_ATTRIBUTES = 0x1003;
+    private static final int ALC_MONO_SOURCES = 0x1010;
+    private static final int ALC_HRTF_SOFT = 0x1992;
+    private static final int ALC_HRTF_ID_SOFT = 0x1996;
+    private static final int AL_SOURCE_DISTANCE_MODEL = 0x0200;
+    private static final int ALC_DEFAULT_ALL_DEVICES_SPECIFIER = 0x1012;
+    private static final int ALC_ALL_DEVICES_SPECIFIER = 0x1013;
+    private static final int ALC_DEFAULT_DEVICE_SPECIFIER = 0x1004;
+    private static final int ALC_CONNECTED = 0x0313;
 
     private long deviceHandle;
     private long contextHandle;
-    private boolean disconnectQuerySupported;
-    private @Nullable String rememberedDefaultDevice;
+    private boolean canCheckDisconnects;
+    private @Nullable String lastDefaultDevice;
 
-    private final Listener audioListener = new Listener();
-    private ChannelPool staticPool = new LimitedChannelPool(0);
-    private ChannelPool streamPool = new LimitedChannelPool(0);
+    private final Listener listener = new Listener();
+    private ChannelPool staticPool = new BoundedChannelPool(0);
+    private ChannelPool streamingPool = new BoundedChannelPool(0);
 
     public Library() {
-        rememberedDefaultDevice = queryDefaultDevice();
+        lastDefaultDevice = getDefaultDeviceName();
     }
 
-    public void init(@Nullable String preferredDevice, boolean requestHrtf) {
-        deviceHandle = openDevice(preferredDevice);
+    public void init(@Nullable String requestedDevice, boolean enableHrtf) {
+        deviceHandle = openDevice(requestedDevice);
 
         ALCCapabilities alcCaps = ALC.createCapabilities(deviceHandle);
-        if (alcGetError(deviceHandle, "Create ALC capabilities")
-                || !alcCaps.OpenALC11) {
-            throw new IllegalStateException("OpenAL 1.1 capabilities are unavailable");
+        if (checkAlcError(deviceHandle, "Read device capabilities")) {
+            throw new IllegalStateException("Could not read OpenAL device capabilities");
+        }
+        if (!alcCaps.OpenALC11) {
+            throw new IllegalStateException("OpenAL 1.1 is required");
         }
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            IntBuffer attributes = makeContextAttributes(stack, alcCaps, requestHrtf);
+            IntBuffer attributes = createContextAttributes(
+                    stack,
+                    alcCaps.ALC_SOFT_HRTF && enableHrtf
+            );
             contextHandle = ALC10.alcCreateContext(deviceHandle, attributes);
         }
 
-        if (contextHandle == 0L || alcGetError(deviceHandle, "Create context")) {
+        if (contextHandle == 0L || checkAlcError(deviceHandle, "Create context")) {
             throw new IllegalStateException("Could not create an OpenAL context");
         }
-
         if (!ALC10.alcMakeContextCurrent(contextHandle)) {
             throw new IllegalStateException("Could not activate the OpenAL context");
         }
 
         ALCapabilities alCaps = AL.createCapabilities(alcCaps);
-        throwIfAlError("Initialize OpenAL capabilities");
+        checkAlError("Initialize OpenAL");
 
         if (!alCaps.AL_EXT_source_distance_model) {
             throw new IllegalStateException("Per-source distance models are unavailable");
         }
 
-        AL10.alEnable(SOURCE_DISTANCE_MODEL);
-        throwIfAlError("Enable source distance models");
+        AL10.alEnable(AL_SOURCE_DISTANCE_MODEL);
+        checkAlError("Enable per-source distance models");
 
-        int availableSources = readSourceCapacity();
-        int streamLimit = clamp((int) Math.sqrt(availableSources), 2, 8);
-        int staticLimit = clamp(availableSources - streamLimit, 8, 255);
+        int sourceLimit = querySourceLimit();
+        int streamingLimit = clamp((int) Math.sqrt(sourceLimit), 2, 8);
+        int staticLimit = clamp(sourceLimit - streamingLimit, 8, 255);
 
-        staticPool = new LimitedChannelPool(staticLimit);
-        streamPool = new LimitedChannelPool(streamLimit);
-
-        disconnectQuerySupported =
+        staticPool = new BoundedChannelPool(staticLimit);
+        streamingPool = new BoundedChannelPool(streamingLimit);
+        canCheckDisconnects =
                 ALC10.alcIsExtensionPresent(deviceHandle, "ALC_EXT_disconnect");
 
-        LOG.info("OpenAL ready: {}", currentDeviceName());
+        LOG.info("OpenAL initialized on device {}", getCurrentDeviceName());
     }
 
-    private IntBuffer makeContextAttributes(
-            MemoryStack stack,
-            ALCCapabilities alcCaps,
-            boolean requestHrtf
-    ) {
-        IntBuffer result = stack.callocInt(5);
+    private IntBuffer createContextAttributes(MemoryStack stack, boolean useHrtf) {
+        IntBuffer attributes = stack.callocInt(7);
 
-        if (requestHrtf && alcCaps.ALC_SOFT_HRTF) {
-            result.put(HRTF_REQUEST).put(1);
+        if (useHrtf) {
+            attributes.put(ALC_HRTF_SOFT).put(1);
+            attributes.put(ALC_HRTF_ID_SOFT).put(0);
         }
 
-        result.put(MIX_RATE).put(44100);
-        result.put(0);
-        return result.flip();
+        attributes.put(ALC_FREQUENCY).put(44100);
+        attributes.put(0);
+        return attributes.flip();
     }
 
-    private int readSourceCapacity() {
-        int reported = ALC10.alcGetInteger(deviceHandle, 0x1010); // ALC_MONO_SOURCES
-        if (alcGetError(deviceHandle, "Query source capacity") || reported <= 0) {
-            return FALLBACK_SOURCE_COUNT;
+    private int querySourceLimit() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            int attributeCount = ALC10.alcGetInteger(deviceHandle, ALC_ATTRIBUTES_SIZE);
+            if (checkAlcError(deviceHandle, "Query device attribute count")
+                    || attributeCount <= 0) {
+                return DEFAULT_SOURCE_LIMIT;
+            }
+
+            IntBuffer attributes = stack.mallocInt(attributeCount);
+            ALC10.alcGetIntegerv(deviceHandle, ALC_ALL_ATTRIBUTES, attributes);
+            if (checkAlcError(deviceHandle, "Read device attributes")) {
+                return DEFAULT_SOURCE_LIMIT;
+            }
+
+            for (int index = 0; index + 1 < attributeCount; ) {
+                int attribute = attributes.get(index++);
+                if (attribute == 0) {
+                    break;
+                }
+
+                int value = attributes.get(index++);
+                if (attribute == ALC_MONO_SOURCES && value > 0) {
+                    return value;
+                }
+            }
+
+            return DEFAULT_SOURCE_LIMIT;
         }
-        return reported;
     }
 
-    public static @Nullable String queryDefaultDevice() {
+    public static @Nullable String getDefaultDeviceName() {
         if (!ALC10.alcIsExtensionPresent(NO_DEVICE, "ALC_ENUMERATE_ALL_EXT")) {
             return null;
         }
-
-        return ALC10.alcGetString(NO_DEVICE, 0x1012); // ALC_DEFAULT_ALL_DEVICES_SPECIFIER
+        return ALC10.alcGetString(NO_DEVICE, ALC_DEFAULT_ALL_DEVICES_SPECIFIER);
     }
 
-    public String currentDeviceName() {
-        String result = ALC10.alcGetString(deviceHandle, 0x1013); // ALC_ALL_DEVICES_SPECIFIER
-        if (result == null) {
-            result = ALC10.alcGetString(deviceHandle, 0x1004); // ALC_DEFAULT_DEVICE_SPECIFIER
+    public String getCurrentDeviceName() {
+        String name = ALC10.alcGetString(deviceHandle, ALC_ALL_DEVICES_SPECIFIER);
+        if (name == null) {
+            name = ALC10.alcGetString(deviceHandle, ALC_DEFAULT_DEVICE_SPECIFIER);
         }
-        return result == null ? "Unknown" : result;
+        return name == null ? "Unknown" : name;
     }
 
-    public synchronized boolean defaultDeviceChanged() {
-        String latest = queryDefaultDevice();
-        if (Objects.equals(rememberedDefaultDevice, latest)) {
+    public synchronized boolean hasDefaultDeviceChanged() {
+        String currentDefault = getDefaultDeviceName();
+        if (Objects.equals(lastDefaultDevice, currentDefault)) {
             return false;
         }
 
-        rememberedDefaultDevice = latest;
+        lastDefaultDevice = currentDefault;
         return true;
     }
 
-    private static long openDevice(@Nullable String preferredName) {
-        OptionalLong opened = tryOpenDevice(preferredName);
-        if (opened.isEmpty()) {
-            opened = tryOpenDevice(queryDefaultDevice());
+    private static long openDevice(@Nullable String requestedName) {
+        OptionalLong result = requestedName == null
+                ? OptionalLong.empty()
+                : tryOpenDevice(requestedName);
+
+        if (result.isEmpty()) {
+            result = tryOpenDevice(getDefaultDeviceName());
         }
-        if (opened.isEmpty()) {
-            opened = tryOpenDevice(null);
+        if (result.isEmpty()) {
+            result = tryOpenDevice(null);
         }
 
-        return opened.orElseThrow(
+        return result.orElseThrow(
                 () -> new IllegalStateException("Could not open an OpenAL device")
         );
     }
 
     private static OptionalLong tryOpenDevice(@Nullable String name) {
-        long candidate = ALC10.alcOpenDevice(name);
-        if (candidate == 0L) {
+        long opened = ALC10.alcOpenDevice(name);
+        if (opened == 0L) {
             return OptionalLong.empty();
         }
 
-        if (alcGetError(candidate, "Open device")) {
-            ALC10.alcCloseDevice(candidate);
+        if (checkAlcError(opened, "Open device")) {
+            ALC10.alcCloseDevice(opened);
             return OptionalLong.empty();
         }
 
-        return OptionalLong.of(candidate);
+        return OptionalLong.of(opened);
     }
 
     public void cleanup() {
         staticPool.cleanup();
-        streamPool.cleanup();
+        streamingPool.cleanup();
 
         if (contextHandle != 0L) {
             ALC10.alcMakeContextCurrent(0L);
@@ -183,45 +214,45 @@ public final class Library {
             deviceHandle = 0L;
         }
 
-        disconnectQuerySupported = false;
+        canCheckDisconnects = false;
     }
 
     public Listener getListener() {
-        return audioListener;
+        return listener;
     }
 
-    public @Nullable Channel acquireChannel(PoolKind kind) {
-        return kind == PoolKind.STREAM ? streamPool.acquire() : staticPool.acquire();
+    public @Nullable Channel acquireChannel(Pool pool) {
+        return (pool == Pool.STREAMING ? streamingPool : staticPool).acquire();
     }
 
     public void releaseChannel(Channel channel) {
-        if (!staticPool.release(channel) && !streamPool.release(channel)) {
-            throw new IllegalArgumentException("Channel is not held by this library");
+        if (!staticPool.release(channel) && !streamingPool.release(channel)) {
+            throw new IllegalStateException("Tried to release an unowned channel");
         }
     }
 
-    public String debugSummary() {
+    public String getDebugString() {
         return String.format(
                 Locale.ROOT,
                 "Sounds: %d/%d + %d/%d",
-                staticPool.used(),
+                staticPool.usedCount(),
                 staticPool.capacity(),
-                streamPool.used(),
-                streamPool.capacity()
+                streamingPool.usedCount(),
+                streamingPool.capacity()
         );
     }
 
-    public List<String> availableDeviceNames() {
-        List<String> names = ALUtil.getStringList(NO_DEVICE, 0x1013);
-        return names == null ? Collections.emptyList() : new ArrayList<>(names);
+    public List<String> getAvailableSoundDevices() {
+        List<String> names = ALUtil.getStringList(NO_DEVICE, ALC_ALL_DEVICES_SPECIFIER);
+        return names == null ? Collections.emptyList() : names;
     }
 
-    public boolean currentDeviceDisconnected() {
-        return disconnectQuerySupported
-                && ALC11.alcGetInteger(deviceHandle, 0x0313) == 0;
+    public boolean isCurrentDeviceDisconnected() {
+        return canCheckDisconnects
+                && ALC11.alcGetInteger(deviceHandle, ALC_CONNECTED) == 0;
     }
 
-    private static boolean alcGetError(long device, String operation) {
+    private static boolean checkAlcError(long device, String operation) {
         int error = ALC10.alcGetError(device);
         if (error == ALC10.ALC_NO_ERROR) {
             return false;
@@ -231,7 +262,7 @@ public final class Library {
         return true;
     }
 
-    private static void throwIfAlError(String operation) {
+    private static void checkAlError(String operation) {
         int error = AL10.alGetError();
         if (error != AL10.AL_NO_ERROR) {
             throw new IllegalStateException(
@@ -240,8 +271,8 @@ public final class Library {
         }
     }
 
-    private static int clamp(int value, int lower, int upper) {
-        return Math.max(lower, Math.min(value, upper));
+    private static int clamp(int value, int minimum, int maximum) {
+        return Math.max(minimum, Math.min(value, maximum));
     }
 
     private interface ChannelPool {
@@ -253,37 +284,37 @@ public final class Library {
 
         int capacity();
 
-        int used();
+        int usedCount();
     }
 
-    private static final class LimitedChannelPool implements ChannelPool {
+    private static final class BoundedChannelPool implements ChannelPool {
         private final int maximum;
-        private final Set<Channel> leased =
+        private final Set<Channel> leasedChannels =
                 Collections.newSetFromMap(new IdentityHashMap<>());
 
-        private LimitedChannelPool(int maximum) {
+        private BoundedChannelPool(int maximum) {
             this.maximum = maximum;
         }
 
         @Override
         public @Nullable Channel acquire() {
-            if (leased.size() >= maximum) {
+            if (leasedChannels.size() >= maximum) {
                 if (Boolean.getBoolean("fabric.development")) {
                     LOG.warn("Audio channel limit reached ({})", maximum);
                 }
                 return null;
             }
 
-            Channel created = Channel.create();
-            if (created != null) {
-                leased.add(created);
+            Channel channel = Channel.create();
+            if (channel != null) {
+                leasedChannels.add(channel);
             }
-            return created;
+            return channel;
         }
 
         @Override
         public boolean release(Channel channel) {
-            if (!leased.remove(channel)) {
+            if (!leasedChannels.remove(channel)) {
                 return false;
             }
 
@@ -293,10 +324,8 @@ public final class Library {
 
         @Override
         public void cleanup() {
-            for (Channel channel : leased) {
-                channel.destroy();
-            }
-            leased.clear();
+            leasedChannels.forEach(Channel::destroy);
+            leasedChannels.clear();
         }
 
         @Override
@@ -305,13 +334,13 @@ public final class Library {
         }
 
         @Override
-        public int used() {
-            return leased.size();
+        public int usedCount() {
+            return leasedChannels.size();
         }
     }
 
-    public enum PoolKind {
+    public enum Pool {
         STATIC,
-        STREAM
+        STREAMING
     }
 }
