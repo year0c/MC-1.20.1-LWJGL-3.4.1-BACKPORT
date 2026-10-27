@@ -38,7 +38,11 @@ dependencies {
     modImplementation "maven.modrinth:hxIWsdEF:mwHcOAds"
     modImplementation "maven.modrinth:9s6osm5g:2xQdCMyG"
 
-    implementation 'com.google.code.gson:gson:+'
+    implementation "com.google.code.gson:gson:+"
+    include "com.google.code.gson:gson:+"
+
+    implementation "org.jspecify:jspecify:+"
+    include "org.jspecify:jspecify:+"
 }
 
 processResources {
