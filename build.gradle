@@ -39,15 +39,6 @@ dependencies {
     modImplementation "maven.modrinth:9s6osm5g:2xQdCMyG"
 }
 
-configurations.configureEach {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "org.lwjgl") {
-            useVersion("3.4.1")
-            because("Use LWJGL 3.4.1 in the development environment")
-        }
-    }
-}
-
 processResources {
     inputs.property "version", project.version
 
