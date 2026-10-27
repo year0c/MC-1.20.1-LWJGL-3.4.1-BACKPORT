@@ -43,6 +43,9 @@ dependencies {
 
     implementation "org.jspecify:jspecify:+"
     include "org.jspecify:jspecify:+"
+
+    implementation "org.jcraft:jorbis:+"
+    include "org.jcraft:jorbis:+"   
 }
 
 //configurations.configureEach {
