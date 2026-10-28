@@ -366,9 +366,9 @@ public class Library {
 
         @Override
         public void cleanup() {
-            this.activeChannels.forEach(Channel::destroy);
+            this.activeChannels.forEach(channel -> channel.destroy());
             this.activeChannels.clear();
-        }
+        }   
 
         @Override
         public int getMaxCount() {

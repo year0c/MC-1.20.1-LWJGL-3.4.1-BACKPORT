@@ -150,15 +150,18 @@ public class Channel {
    private void pumpBuffers(int i) {
       if (this.stream != null) {
          try {
-            for (int j = 0; j < i; j++) {
-                ByteBuffer byteBuffer = this.stream.getBuffer(this.streamingBufferSize);
-                if (byteBuffer != null) {
-                   int[] bufferId = new int[1];
-                   AL10.alGenBuffers(bufferId);
-                   byteBuffer.rewind();
-                   AL10.alBufferData(bufferId[0], getOpenALFormat(this.stream.getFormat()), byteBuffer, (int) this.stream.getFormat().getFrameRate());
-                   AL10.alSourceQueueBuffers(this.source, bufferId);
-                }
+            AudioStream stream = this.stream;
+            if (stream != null) {
+               for (int j = 0; j < i; j++) {
+                  ByteBuffer byteBuffer = stream.getBuffer(this.streamingBufferSize);
+                  if (byteBuffer != null) {
+                     int[] bufferId = new int[1];
+                     AL10.alGenBuffers(bufferId);
+                     byteBuffer.rewind();
+                     AL10.alBufferData(bufferId[0], getOpenALFormat(stream.getFormat()), byteBuffer, (int) stream.getFormat().getFrameRate());
+                     AL10.alSourceQueueBuffers(this.source, bufferId);
+                  }
+               }
             }   
          } catch (IOException iOException) {
             LOGGER.error("Failed to read from audio stream", iOException);
