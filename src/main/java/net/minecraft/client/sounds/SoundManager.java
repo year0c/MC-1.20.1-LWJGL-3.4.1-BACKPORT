@@ -44,7 +44,7 @@ import net.minecraft.util.math.floatprovider.FloatSupplier;
 import net.minecraft.util.math.floatprovider.MultipliedFloatSupplier;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.util.profiler.Profiler;
-import net.minecraft.util.profiler.SampleType;   
+import net.minecraft.util.profiler.SampleType;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -69,7 +69,7 @@ public class SoundManager implements ResourceReloader {
       public void visit(Supplier<String> marker) {}
       public void visit(String marker, int num) {}
       public void visit(Supplier<String> marker, int num) {}
-      public void markSampleType(SampleType type) {}   
+      public void markSampleType(SampleType type) {}
    };
    private static final Gson GSON = new GsonBuilder()
       .registerTypeAdapter(TSoundEntry.class, (JsonDeserializer<TSoundEntry>) (json, typeOfT, context) -> {
@@ -121,7 +121,8 @@ public class SoundManager implements ResourceReloader {
       preparations.listResources(resourceManager);
       profiler.pop();
 
-      Map<Identifier, Resource> resources = resourceManager.findResources("sounds", id -> id.getPath().equals("sounds.json"));
+      Map<Identifier, Resource> resources = resourceManager.findResources("sounds.json", id -> true);
+      System.out.println("[SBL] sounds.json found: " + resources.size());
 
       for (Map.Entry<Identifier, Resource> entry : resources.entrySet()) {
          String namespace = entry.getKey().getNamespace();
@@ -428,6 +429,7 @@ public class SoundManager implements ResourceReloader {
 
       void listResources(ResourceManager resourceManager) {
          this.soundCache = resourceManager.findResources("sounds", id -> id.getPath().endsWith(".ogg"));
+         System.out.println("[SBL] .ogg files found: " + this.soundCache.size());
       }
 
       void handleRegistration(Identifier id, TSoundEntry soundEntry) {
