@@ -48,14 +48,14 @@ dependencies {
     include "org.jcraft:jorbis:+"   
 }
 
-//configurations.configureEach {
-//    resolutionStrategy.eachDependency {
-//        if (requested.group == "org.lwjgl") {
-//            useVersion("3.4.1")
-//            because("Use LWJGL 3.4.1 in the development environment")
-//        }
-//    }
-//}
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.lwjgl") {
+            useVersion("3.3.3")
+            because("Use LWJGL 3.3.3 in the development environment")
+        }
+    }
+}
 
 processResources {
     inputs.property "version", project.version
