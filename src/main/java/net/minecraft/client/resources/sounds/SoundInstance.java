@@ -1,22 +1,23 @@
 package net.minecraft.client.resources.sounds;
 
 import net.minecraft.client.sounds.SoundManager;
-import net.minecraft.client.sound.WeightedSoundSet;   
 import net.minecraft.client.sound.Sound;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.random.Random;
-import org.jspecify.annotations.Nullable;
 
 public interface SoundInstance {
    Identifier getLocation();
 
-   @Nullable
-   WeightedSoundSet resolve(SoundManager soundManager);
+   default boolean hasSound(SoundManager soundManager) {
+      return soundManager.hasSound(this.getLocation());
+   }
 
    Sound getSound();
 
    SoundCategory getCategory();
+
+   Attenuation getAttenuation();
 
    boolean isLooping();
 
@@ -33,8 +34,6 @@ public interface SoundInstance {
    double getY();
 
    double getZ();
-
-   Attenuation getAttenuation();
 
    default boolean canStartSilent() {
       return false;

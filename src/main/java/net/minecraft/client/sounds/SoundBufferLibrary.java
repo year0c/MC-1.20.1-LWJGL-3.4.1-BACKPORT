@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import net.minecraft.client.sound.Sound;
 import net.minecraft.resource.ResourceFactory;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
@@ -54,13 +53,13 @@ public class SoundBufferLibrary {
    public void clear() {
       this.cache.values().forEach(future -> future.thenAccept(buffer -> buffer.discardAlBuffer()));
       this.cache.clear();
-   }   
+   }
 
-   public CompletableFuture<?> preload(Collection<Sound> collection) {
+   public CompletableFuture<?> preload(Collection<SoundManager.TSound> collection) {
       List<CompletableFuture<?>> futures = new ArrayList<>();
-      for (Sound sound : collection) {
+      for (SoundManager.TSound sound : collection) {
          futures.add(this.getCompleteBuffer(sound.getIdentifier()));
       }
       return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-   }
+   }   
 }   
