@@ -9,6 +9,9 @@ import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(SoundManager.class)
 public abstract class TSoundManagerMixin {
@@ -90,4 +93,9 @@ public abstract class TSoundManagerMixin {
     public void updateSoundVolume(SoundCategory category, float volume) {
         this.getNewManager().updateSourceVolume(category, volume);
     }
+
+    @Inject(method = "apply", at = @At("RETURN"))
+    private void onApplyReloaded(CallbackInfo ci) {
+        this.getNewManager().reload();
+    }   
 }   

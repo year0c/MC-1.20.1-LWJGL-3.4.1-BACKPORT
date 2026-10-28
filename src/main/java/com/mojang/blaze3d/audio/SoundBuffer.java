@@ -23,6 +23,7 @@ public class SoundBuffer {
          if (this.data == null) {
             return OptionalInt.empty();
          }
+         ByteBuffer data = this.data; // @NonNull from here on
 
          int i = OpenAlUtil.audioFormatToOpenAl(this.format);
          int[] is = new int[1];
@@ -31,10 +32,7 @@ public class SoundBuffer {
             return OptionalInt.empty();
          }
 
-         AL10.alBufferData(is[0], i, this.data, (int)this.format.getSampleRate());
-         if (OpenAlUtil.checkALError("Assigning buffer data")) {
-            return OptionalInt.empty();
-         }
+         AL10.alBufferData(is[0], i, data, (int)this.format.getSampleRate());   
 
          this.alBuffer = is[0];
          this.hasAlBuffer = true;

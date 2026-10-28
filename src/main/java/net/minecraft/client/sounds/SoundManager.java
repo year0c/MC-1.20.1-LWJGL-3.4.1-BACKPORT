@@ -24,10 +24,11 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.sound.SoundInstance;   
+import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.client.sound.Sound;
 import net.minecraft.client.sound.TickableSoundInstance;
 import net.minecraft.registry.Registries;
@@ -43,6 +44,7 @@ import net.minecraft.util.math.floatprovider.FloatSupplier;
 import net.minecraft.util.math.floatprovider.MultipliedFloatSupplier;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.util.profiler.Profiler;
+import net.minecraft.util.profiler.SampleType;   
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -55,6 +57,20 @@ public class SoundManager implements ResourceReloader {
    );
    static final Logger LOGGER = LogUtils.getLogger();
    private static final String SOUNDS_PATH = "sounds.json";
+   private static final Profiler NOP_PROFILER = new Profiler() {
+      public void startTick() {}
+      public void endTick() {}
+      public void push(String location) {}
+      public void push(Supplier<String> locationGetter) {}
+      public void pop() {}
+      public void swap(String location) {}
+      public void swap(Supplier<String> locationGetter) {}
+      public void visit(String marker) {}
+      public void visit(Supplier<String> marker) {}
+      public void visit(String marker, int num) {}
+      public void visit(Supplier<String> marker, int num) {}
+      public void markSampleType(SampleType type) {}   
+   };
    private static final Gson GSON = new GsonBuilder()
       .registerTypeAdapter(TSoundEntry.class, (JsonDeserializer<TSoundEntry>) (json, typeOfT, context) -> {
          JsonObject obj = json.getAsJsonObject();
@@ -94,8 +110,13 @@ public class SoundManager implements ResourceReloader {
          }, applyExecutor);
    }
 
-   private SoundManager.Preparations prepare(ResourceManager resourceManager, Profiler profiler) {
-      SoundManager.Preparations preparations = new SoundManager.Preparations();
+   public void reload(ResourceManager resourceManager) {
+      Preparations preparations = prepare(resourceManager, NOP_PROFILER);
+      apply(preparations, resourceManager, NOP_PROFILER);
+   }
+
+   private Preparations prepare(ResourceManager resourceManager, Profiler profiler) {
+      Preparations preparations = new Preparations();
       profiler.push("list");
       preparations.listResources(resourceManager);
       profiler.pop();
@@ -129,7 +150,7 @@ public class SoundManager implements ResourceReloader {
       return preparations;
    }
 
-   private void apply(SoundManager.Preparations preparations, ResourceManager resourceManager, Profiler profiler) {
+   private void apply(Preparations preparations, ResourceManager resourceManager, Profiler profiler) {
       preparations.apply(this.registry, this.soundCache, this.soundEngine);
       this.validSoundEvents.clear();
       this.validSoundEvents.addAll(this.registry.keySet());
