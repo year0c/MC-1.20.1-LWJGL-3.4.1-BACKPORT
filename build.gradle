@@ -55,7 +55,7 @@ configurations.configureEach {
             if (requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector
                     && requested.group == "org.lwjgl") {
                 substitution.useTarget(
-                    "${requested.group}:${requested.module}:3.4.1",
+                    "${requested.group}:${requested.module}:3.3.3",
                     "Use LWJGL 3.3.3 in the development environment"
                 )
             }
