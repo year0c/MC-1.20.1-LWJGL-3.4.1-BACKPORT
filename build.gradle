@@ -49,10 +49,16 @@ dependencies {
 }
 
 configurations.configureEach {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "org.lwjgl") {
-            useVersion("3.3.3")
-            because("Use LWJGL 3.3.3 in the development environment")
+    resolutionStrategy.dependencySubstitution {
+        all { substitution ->
+            def requested = substitution.requested
+            if (requested instanceof org.gradle.api.artifacts.component.ModuleComponentSelector
+                    && requested.group == "org.lwjgl") {
+                substitution.useTarget(
+                    "${requested.group}:${requested.module}:3.4.1",
+                    "Use LWJGL 3.3.3 in the development environment"
+                )
+            }
         }
     }
 }
