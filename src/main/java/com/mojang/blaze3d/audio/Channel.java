@@ -7,8 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.sound.sampled.AudioFormat;
 
-import net.minecraft.client.sound.StaticSound;
-import net.minecraft.client.sound.AudioStream;
+import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.util.math.Vec3d;
 import org.jspecify.annotations.Nullable;
 import org.lwjgl.openal.AL10;
@@ -42,8 +41,8 @@ public class Channel {
             if (this.stream != null) {
                 try {
                     this.stream.close();
-                } catch (IOException iOException) {
-                    LOGGER.error("Failed to close audio stream", iOException);
+                } catch (IOException e) {
+                    LOGGER.error("Failed to close audio stream", e);
                 }
 
                 this.removeProcessedBuffers();
@@ -60,17 +59,17 @@ public class Channel {
     }
 
     private int getState() {
-        return !this.initialized.get() ? 4116 : AL10.alGetSourcei(this.source, 4112);
+        return !this.initialized.get() ? AL10.AL_STOPPED : AL10.alGetSourcei(this.source, AL10.AL_SOURCE_STATE);
     }
 
     public void pause() {
-        if (this.getState() == 4114) {
+        if (this.getState() == AL10.AL_PLAYING) {
             AL10.alSourcePause(this.source);
         }
     }
 
     public void unpause() {
-        if (this.getState() == 4115) {
+        if (this.getState() == AL10.AL_PAUSED) {
             AL10.alSourcePlay(this.source);
         }
     }
@@ -83,109 +82,104 @@ public class Channel {
     }
 
     public boolean playing() {
-        return this.getState() == 4114;
+        return this.getState() == AL10.AL_PLAYING;
     }
 
     public boolean stopped() {
-        return this.getState() == 4116;
+        return this.getState() == AL10.AL_STOPPED;
     }
 
     public void setSelfPosition(Vec3d vec3) {
-        AL10.alSourcefv(this.source, 4100, new float[]{(float)vec3.x, (float)vec3.y, (float)vec3.z});
+        AL10.alSourcefv(this.source, AL10.AL_POSITION, new float[]{(float)vec3.x, (float)vec3.y, (float)vec3.z});
     }
 
     public void setPitch(float f) {
-        AL10.alSourcef(this.source, 4099, f);
+        AL10.alSourcef(this.source, AL10.AL_PITCH, f);
     }
 
     public void setLooping(boolean bl) {
-        AL10.alSourcei(this.source, 4103, bl ? 1 : 0);
+        AL10.alSourcei(this.source, AL10.AL_LOOPING, bl ? 1 : 0);
     }
 
-  public void setVolume(float f) {
-      AL10.alSourcef(this.source, 4106, f);
-   }
+    public void setVolume(float f) {
+        AL10.alSourcef(this.source, AL10.AL_GAIN, f);
+    }
 
-   public void disableAttenuation() {
-      AL10.alSourcei(this.source, 53248, 0);
-   }
+    public void disableAttenuation() {
+        AL10.alSourcei(this.source, 53248, 0);
+    }
 
-   public void linearAttenuation(float f) {
-      AL10.alSourcei(this.source, 53248, 53251);
-      AL10.alSourcef(this.source, 4131, f);
-      AL10.alSourcef(this.source, 4129, 1.0F);
-      AL10.alSourcef(this.source, 4128, 0.0F);
-   }
+    public void linearAttenuation(float f) {
+        AL10.alSourcei(this.source, 53248, 53251);
+        AL10.alSourcef(this.source, 4131, f);
+        AL10.alSourcef(this.source, 4129, 1.0F);
+        AL10.alSourcef(this.source, 4128, 0.0F);
+    }   
 
-   public void setRelative(boolean bl) {
-      AL10.alSourcei(this.source, 514, bl ? 1 : 0);
-   }
+    public void attachStaticBuffer(SoundBuffer soundBuffer) {
+        soundBuffer.getAlBuffer().ifPresent(i -> AL10.alSourcei(this.source, AL10.AL_BUFFER, i));
+    }
 
-   public void attachStaticBuffer(StaticSound staticSound) {
-      staticSound.takeStreamBufferPointer().ifPresent(i -> AL10.alSourcei(this.source, 4105, i));
-   }   
+    public void attachBufferStream(AudioStream audioStream) {
+        this.stream = audioStream;
+        AudioFormat audioFormat = audioStream.getFormat();
+        this.streamingBufferSize = calculateBufferSize(audioFormat, BUFFER_DURATION_SECONDS);
+        this.pumpBuffers(QUEUED_BUFFER_COUNT);
+    }
 
-   public void attachBufferStream(AudioStream audioStream) {
-      this.stream = audioStream;
-      AudioFormat audioFormat = audioStream.getFormat();
-      this.streamingBufferSize = calculateBufferSize(audioFormat, 1);
-      this.pumpBuffers(QUEUED_BUFFER_COUNT);
-   }   
+    public void setRelative(boolean bl) {
+        AL10.alSourcei(this.source, 514, bl ? 1 : 0);
+    }
 
-   private static int calculateBufferSize(AudioFormat audioFormat, int i) {
-      return (int)(i * audioFormat.getSampleSizeInBits() / 8.0F * audioFormat.getChannels() * audioFormat.getSampleRate());
-   }
+    private static int calculateBufferSize(AudioFormat audioFormat, int seconds) {
+        return (int)(seconds * audioFormat.getSampleSizeInBits() / 8.0F * audioFormat.getChannels() * audioFormat.getSampleRate());
+    }
 
-   private static int getOpenALFormat(AudioFormat format) {
-      boolean stereo = format.getChannels() == 2;
-      if (format.getEncoding() == AudioFormat.Encoding.PCM_SIGNED && format.getSampleSizeInBits() == 16) {
-         return stereo ? AL10.AL_FORMAT_STEREO16 : AL10.AL_FORMAT_MONO16;
-      }
-      if (format.getEncoding() == AudioFormat.Encoding.PCM_FLOAT && format.getSampleSizeInBits() == 32) {
-         return stereo ? 0x1105 : 0x1104; // AL_FORMAT_STEREO_FLOAT / AL_FORMAT_MONO_FLOAT
-      }
-      throw new IllegalArgumentException("Unsupported audio format: " + format);
-   }   
+    private static int getOpenALFormat(AudioFormat format) {
+        boolean stereo = format.getChannels() == 2;
+        if (format.getEncoding() == AudioFormat.Encoding.PCM_SIGNED && format.getSampleSizeInBits() == 16) {
+            return stereo ? AL10.AL_FORMAT_STEREO16 : AL10.AL_FORMAT_MONO16;
+        }
+        throw new IllegalArgumentException("Unsupported audio format: " + format);
+    }
 
-   private void pumpBuffers(int i) {
-      if (this.stream != null) {
-         try {
-            AudioStream stream = this.stream;
-            if (stream != null) {
-               for (int j = 0; j < i; j++) {
-                  ByteBuffer byteBuffer = stream.getBuffer(this.streamingBufferSize);
-                  if (byteBuffer != null) {
-                     int[] bufferId = new int[1];
-                     AL10.alGenBuffers(bufferId);
-                     byteBuffer.rewind();
-                     AL10.alBufferData(bufferId[0], getOpenALFormat(stream.getFormat()), byteBuffer, (int) stream.getFormat().getFrameRate());
-                     AL10.alSourceQueueBuffers(this.source, bufferId);
-                  }
-               }
-            }   
-         } catch (IOException iOException) {
-            LOGGER.error("Failed to read from audio stream", iOException);
-         }
-      }
-   }
+    private void pumpBuffers(int i) {
+        AudioStream stream = this.stream;
+        if (stream != null) {
+            try {
+                for (int j = 0; j < i; j++) {
+                    ByteBuffer byteBuffer = stream.read(this.streamingBufferSize);
+                    if (byteBuffer != null) {
+                        int[] bufferId = new int[1];
+                        AL10.alGenBuffers(bufferId);
+                        byteBuffer.rewind();
+                        AL10.alBufferData(bufferId[0], getOpenALFormat(stream.getFormat()), byteBuffer, (int) stream.getFormat().getSampleRate());
+                        AL10.alSourceQueueBuffers(this.source, bufferId);
+                    }
+                }
+            } catch (IOException e) {
+                LOGGER.error("Failed to read from audio stream", e);
+            }
+        }
+    }
 
-   public void updateStream() {
-      if (this.stream != null) {
-         int i = this.removeProcessedBuffers();
-         this.pumpBuffers(i);
-      }
-   }
+    public void updateStream() {
+        if (this.stream != null) {
+            int i = this.removeProcessedBuffers();
+            this.pumpBuffers(i);
+        }
+    }
 
-   private int removeProcessedBuffers() {
-      int i = AL10.alGetSourcei(this.source, 4118);
-      if (i > 0) {
-         int[] is = new int[i];
-         AL10.alSourceUnqueueBuffers(this.source, is);
-         OpenAlUtil.checkALError("Unqueue buffers");
-         AL10.alDeleteBuffers(is);
-         OpenAlUtil.checkALError("Remove processed buffers");
-      }
+    private int removeProcessedBuffers() {
+        int i = AL10.alGetSourcei(this.source, AL10.AL_BUFFERS_PROCESSED);
+        if (i > 0) {
+            int[] is = new int[i];
+            AL10.alSourceUnqueueBuffers(this.source, is);
+            OpenAlUtil.checkALError("Unqueue buffers");
+            AL10.alDeleteBuffers(is);
+            OpenAlUtil.checkALError("Remove processed buffers");
+        }
 
-      return i;
-   }
-}
+        return i;
+    }
+}   
