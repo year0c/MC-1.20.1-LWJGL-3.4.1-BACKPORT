@@ -100,19 +100,22 @@ public class SoundEngine {
 
    private synchronized void loadLibrary() {
       if (!this.loaded) {
+         System.out.println("[SE] loadLibrary() called");
          try {
-            String device = this.options.getSoundDevice().getValue();
-            this.library.init(device.isEmpty() ? null : device, this.options.getDirectionalAudio().getValue());
-            this.listener.reset();
-            this.listener.setGain(this.options.getSoundVolume(SoundCategory.MASTER));
-            this.soundBuffers.preload(this.preloadQueue).thenRun(this.preloadQueue::clear);
-            this.loaded = true;
-            LOGGER.info(MARKER, "Sound engine started");
+               String device = this.options.getSoundDevice().getValue();
+               System.out.println("[SE] device=" + device);
+               this.library.init(device.isEmpty() ? null : device, this.options.getDirectionalAudio().getValue());
+               this.listener.reset();
+               this.listener.setGain(this.options.getSoundVolume(SoundCategory.MASTER));
+               this.soundBuffers.preload(this.preloadQueue).thenRun(this.preloadQueue::clear);
+               this.loaded = true;
+               System.out.println("[SE] OpenAL initialized on: " + this.library.getCurrentDeviceName());
          } catch (RuntimeException e) {
-            LOGGER.error(MARKER, "Error starting SoundSystem. Turning off sounds & music", e);
+               System.out.println("[SE] FAILED: " + e.getMessage());
+               e.printStackTrace();
          }
       }
-   }
+   }   
 
    private float getVolume(@Nullable SoundCategory category) {
       return category != null && category != SoundCategory.MASTER ? this.options.getSoundVolume(category) : 1.0F;

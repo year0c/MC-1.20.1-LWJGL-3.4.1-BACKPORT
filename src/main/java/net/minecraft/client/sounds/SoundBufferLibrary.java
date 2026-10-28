@@ -26,18 +26,20 @@ public class SoundBufferLibrary {
    public CompletableFuture<SoundBuffer> getCompleteBuffer(Identifier resourceLocation) {
       return (CompletableFuture<SoundBuffer>) this.cache.computeIfAbsent(resourceLocation, id -> CompletableFuture.supplyAsync(() -> {
          try {
-            InputStream inputStream = this.resourceManager.getResource(id).get().getInputStream();
-            try (var stream = new JOrbisAudioStream(inputStream)) {
-               ByteBuffer byteBuffer = stream.readAll();
-               return new SoundBuffer(byteBuffer, stream.getFormat());
-            } finally {
-               inputStream.close();
-            }
+               System.out.println("[SBL] Loading: " + id);
+               InputStream inputStream = this.resourceManager.getResource(id).get().getInputStream();
+               try (var stream = new JOrbisAudioStream(inputStream)) {
+                  ByteBuffer byteBuffer = stream.readAll();
+                  return new SoundBuffer(byteBuffer, stream.getFormat());
+               } finally {
+                  inputStream.close();
+               }
          } catch (IOException e) {
-            throw new CompletionException(e);
+               System.out.println("[SBL] FAILED: " + id + " — " + e.getMessage());
+               throw new CompletionException(e);
          }
       }, Util.getIoWorkerExecutor()));
-   }
+   }   
 
    public CompletableFuture<AudioStream> getStream(Identifier resourceLocation, boolean bl) {
       return CompletableFuture.supplyAsync(() -> {

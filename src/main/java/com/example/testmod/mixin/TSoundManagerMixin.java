@@ -22,12 +22,13 @@ public abstract class TSoundManagerMixin {
     @Unique
     private net.minecraft.client.sounds.SoundManager getNewManager() {
         if (this.newManager == null) {
+            System.out.println("[TSM] Creating new SoundManager");
             this.newManager = new net.minecraft.client.sounds.SoundManager(
                 net.minecraft.client.MinecraftClient.getInstance().options
             );
         }
         return this.newManager;
-    }
+    }   
 
     @Overwrite
     public void tick(boolean paused) {
