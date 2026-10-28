@@ -27,7 +27,7 @@ import java.util.concurrent.Executor;
 
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.client.sound.SoundInstance;   
 import net.minecraft.client.sound.Sound;
 import net.minecraft.client.sound.TickableSoundInstance;
 import net.minecraft.registry.Registries;
@@ -208,6 +208,10 @@ public class SoundManager implements ResourceReloader {
 
    public void resume() {
       this.soundEngine.resume();
+   }
+
+   public void stopAll() {
+      this.soundEngine.stopAll();
    }
 
    public void updateSourceVolume(SoundCategory category, float volume) {

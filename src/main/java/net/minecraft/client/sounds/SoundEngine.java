@@ -5,11 +5,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+
 import com.mojang.blaze3d.audio.Library;
 import com.mojang.blaze3d.audio.Listener;
 import com.mojang.blaze3d.audio.ListenerTransform;
 import com.mojang.blaze3d.audio.Library.Pool;
 import com.mojang.logging.LogUtils;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -19,13 +21,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+
 import net.minecraft.util.Util;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.sound.Sound;
 import net.minecraft.client.sound.TickableSoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance.Attenuation;
+import net.minecraft.client.sound.SoundInstance;
+import net.minecraft.client.sound.SoundInstance.AttenuationType;
 import net.minecraft.client.sounds.ChannelAccess.ChannelHandle;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
@@ -33,6 +36,7 @@ import net.minecraft.resource.ResourceFactory;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
@@ -260,7 +264,7 @@ public class SoundEngine {
             int deleteTime = this.soundDeleteTime.getOrDefault(soundInstance, 0);
             if (deleteTime <= this.tickCount) {
                if (shouldLoopManually(soundInstance)) {
-                  this.queuedSounds.put(soundInstance, this.tickCount + soundInstance.getDelay());
+                  this.queuedSounds.put(soundInstance, this.tickCount + soundInstance.getRepeatDelay());
                }
 
                iterator.remove();
@@ -295,15 +299,15 @@ public class SoundEngine {
    }
 
    private static boolean requiresManualLooping(SoundInstance soundInstance) {
-      return soundInstance.getDelay() > 0;
+      return soundInstance.getRepeatDelay() > 0;
    }
 
    private static boolean shouldLoopManually(SoundInstance soundInstance) {
-      return soundInstance.isLooping() && requiresManualLooping(soundInstance);
+      return soundInstance.isRepeatable() && requiresManualLooping(soundInstance);
    }
 
    private static boolean shouldLoopAutomatically(SoundInstance soundInstance) {
-      return soundInstance.isLooping() && !requiresManualLooping(soundInstance);
+      return soundInstance.isRepeatable() && !requiresManualLooping(soundInstance);
    }
 
    public boolean isActive(SoundInstance soundInstance) {
@@ -317,9 +321,9 @@ public class SoundEngine {
 
    public void play(SoundInstance soundInstance) {
       if (this.loaded) {
-         if (soundInstance.canPlaySound()) {
-            Identifier id = soundInstance.getLocation();
-            if (!soundInstance.hasSound(this.soundManager)) {
+         if (soundInstance.canPlay()) {
+            Identifier id = soundInstance.getId();
+            if (!this.soundManager.hasSound(id)) {
                if (ONLY_WARN_ONCE.add(id)) {
                   LOGGER.warn(MARKER, "Unable to play unknown soundEvent: {}", id);
                }
@@ -339,18 +343,18 @@ public class SoundEngine {
             SoundCategory category = soundInstance.getCategory();
             float finalVolume = this.calculateVolume(volume, category);
             float pitch = this.calculatePitch(soundInstance);
-            Attenuation attenuation = soundInstance.getAttenuation();
+            AttenuationType attenuation = soundInstance.getAttenuationType();
             boolean relative = soundInstance.isRelative();
 
-            if (finalVolume == 0.0F && !soundInstance.canStartSilent()) {
-               LOGGER.debug(MARKER, "Skipped playing sound {}, volume was zero.", sound.getLocation());
+            if (finalVolume == 0.0F && !soundInstance.shouldAlwaysPlay()) {
+               LOGGER.debug(MARKER, "Skipped playing sound {}, volume was zero.", sound.getIdentifier());
                return;
             }
 
             Vec3d pos = new Vec3d(soundInstance.getX(), soundInstance.getY(), soundInstance.getZ());
 
             if (!this.listeners.isEmpty()) {
-               float distance = !relative && attenuation != Attenuation.NONE ? attenuationDistance : Float.POSITIVE_INFINITY;
+               float distance = !relative && attenuation != AttenuationType.NONE ? attenuationDistance : Float.POSITIVE_INFINITY;
                for (SoundEventListener soundEventListener : this.listeners) {
                   soundEventListener.onPlaySound(soundInstance, distance);
                }
@@ -372,14 +376,14 @@ public class SoundEngine {
                return;
             }
 
-            LOGGER.debug(MARKER, "Playing sound {} for event {}", sound.getLocation(), id);
+            LOGGER.debug(MARKER, "Playing sound {} for event {}", sound.getIdentifier(), id);
             this.soundDeleteTime.put(soundInstance, this.tickCount + 20);
             this.instanceToChannel.put(soundInstance, channelHandle);
             this.instanceBySource.put(category, soundInstance);
             channelHandle.execute(channel -> {
                channel.setPitch(pitch);
                channel.setVolume(finalVolume);
-               if (attenuation == Attenuation.LINEAR) {
+               if (attenuation == AttenuationType.LINEAR) {
                   channel.linearAttenuation(attenuationDistance);
                } else {
                   channel.disableAttenuation();
@@ -465,7 +469,7 @@ public class SoundEngine {
    public void stop(@Nullable Identifier id, @Nullable SoundCategory category) {
       if (category != null) {
          for (SoundInstance soundInstance : this.instanceBySource.get(category)) {
-            if (id == null || soundInstance.getLocation().equals(id)) {
+            if (id == null || soundInstance.getId().equals(id)) {
                this.stop(soundInstance);
             }
          }
@@ -473,7 +477,7 @@ public class SoundEngine {
          this.stopAll();
       } else {
          for (SoundInstance soundInstance : this.instanceToChannel.keySet()) {
-            if (soundInstance.getLocation().equals(id)) {
+            if (id == null || soundInstance.getId().equals(id)) {
                this.stop(soundInstance);
             }
          }
