@@ -37,15 +37,12 @@ dependencies {
 
     modImplementation "maven.modrinth:hxIWsdEF:mwHcOAds"
     modImplementation "maven.modrinth:9s6osm5g:2xQdCMyG"
-}
 
-configurations.configureEach {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "org.lwjgl") {
-            useVersion("3.4.1")
-            because("Use LWJGL 3.4.1 in the development environment")
-        }
-    }
+    implementation "org.lwjgl:lwjgl:3.4.1"
+    implementation "org.lwjgl:lwjgl-openal:3.4.1"
+    implementation "org.lwjgl:lwjgl-openal:natives-linux:3.4.1"
+    implementation "org.lwjgl:lwjgl-openal:natives-macos:3.4.1"
+    implementation "org.lwjgl:lwjgl-openal:natives-windows:3.4.1"   
 }
 
 processResources {
