@@ -37,12 +37,6 @@ dependencies {
 
     modImplementation "maven.modrinth:hxIWsdEF:mwHcOAds"
     modImplementation "maven.modrinth:9s6osm5g:2xQdCMyG"
-
-    implementation "org.lwjgl:lwjgl:3.4.1"
-    implementation "org.lwjgl:lwjgl-openal:3.4.1"
-    implementation "org.lwjgl:lwjgl-openal:natives-linux:3.4.1"
-    implementation "org.lwjgl:lwjgl-openal:natives-macos:3.4.1"
-    implementation "org.lwjgl:lwjgl-openal:natives-windows:3.4.1"   
 }
 
 processResources {
